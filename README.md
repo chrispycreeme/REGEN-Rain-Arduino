@@ -2,6 +2,6 @@
 For our research project.
 
 **Missing Features to be added**
-+ [/] Notification for Status Update
++ [X] Notification for Status Update
 + [ ] Battery Level Meter
 
