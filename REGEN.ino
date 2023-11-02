@@ -1,22 +1,12 @@
 #include <SoftwareSerial.h>
 SoftwareSerial HM10(10, 11);
 
-int sensor;
 #define AOUT_PIN A0
-#define STORMSURGE 250
-#define HEAVYRAIN 550
-#define LIGHTRAIN 900
+#define STORMSURGE 200
+#define HEAVYRAIN 450
+#define LIGHTRAIN 800
 
-int lightRainTimer = 0;
-int heavyRainTimer = 0;
-int stormSurgeTimer = 0;
-
-int stormSurgeMessageTimer = 0;
-int heavyRainMessageTimer = 0;
-int lightRainMessageTimer = 0;
-
-const int TIMER_THRESHOLD = 5;
-bool floodDetected = false;
+int timer = 10;  // Dito nakalagay kung ilang seconds yung timer, seconds seconds
 
 void setup() {
   Serial.begin(9600);
@@ -24,64 +14,59 @@ void setup() {
 }
 
 void loop() {
-  sensor = analogRead(A0);
+  int stormCount = 0, heavyCount = 0, lightCount = 0, noRainCount = 0;
 
+  while (timer > 0) {
+    int value = analogRead(AOUT_PIN);
+
+    if (value <= STORMSURGE) {
+      Serial.print("Storm (");
+      stormCount++;
+    } else if (value <= HEAVYRAIN) {
+      Serial.print("Heavy (");
+      heavyCount++;
+    } else if (value <= LIGHTRAIN) {
+      Serial.print("Light (");
+      lightCount++;
+    } else {
+      Serial.print("No Rain (");
+      noRainCount++;
+    }
+
+    Serial.print(value);
+    Serial.println(")");
+    HM10.print(value);
+    HM10.println(",");
+
+    delay(1000);
+    timer--;
+  }
+
+  int maxCount = max(stormCount, max(heavyCount, max(lightCount, noRainCount)));
   int value = analogRead(AOUT_PIN);
 
-  if (value <= STORMSURGE) {
-    stormSurgeTimer++;
-    lightRainTimer = heavyRainTimer = 0;
-  } else if (value <= HEAVYRAIN) {
-    heavyRainTimer++;
-    lightRainTimer = stormSurgeTimer = 0;
-  } else if (value <= LIGHTRAIN) {
-    lightRainTimer++;
-    heavyRainTimer = stormSurgeTimer = 0;
+  if (maxCount == stormCount) {
+    Serial.println("The most frequent weather condition observed was: Storm");
+    HM10.print(value);
+    HM10.print(",");
+    HM10.println("4");
+  } else if (maxCount == heavyCount) {
+    Serial.println("The most frequent weather condition observed was: Heavy Rain");
+    HM10.print(value);
+    HM10.print(",");
+    HM10.println("3");
+  } else if (maxCount == lightCount) {
+    Serial.println("The most frequent weather condition observed was: Light Rain");
+    HM10.print(value);
+    HM10.print(",");
+    HM10.println("2");
   } else {
-    lightRainTimer = heavyRainTimer = stormSurgeTimer = 0;
-    floodDetected = false;
+    Serial.println("The most frequent weather condition observed was: No Rain");
+    HM10.print(value);
+    HM10.print(",");
+    HM10.println("1");
   }
-
-  if (lightRainTimer >= TIMER_THRESHOLD) {
-    lightRainMessageTimer++;
-  } else if (heavyRainTimer >= TIMER_THRESHOLD) {
-    heavyRainMessageTimer++;
-  } else if (stormSurgeTimer >= TIMER_THRESHOLD) {
-    stormSurgeMessageTimer++;
-  }
-
-  if (stormSurgeMessageTimer >= TIMER_THRESHOLD) {
-    floodDetected = true;
-    Serial.println("Storm Surge Detected for 5 Minutes!");
-    stormSurgeMessageTimer = 0;
-  } else if (heavyRainMessageTimer >= TIMER_THRESHOLD) {
-    floodDetected = true;
-    Serial.println("Heavy Rain Detected for 5 Minutes!");
-    heavyRainMessageTimer = 0;
-  } else if (lightRainMessageTimer >= TIMER_THRESHOLD) {
-    floodDetected = true;
-    Serial.println("Light Rain Detected for 5 Minutes!");
-    lightRainMessageTimer = 0;
-  }
-
-  if (floodDetected && (value < LIGHTRAIN || value >= STORMSURGE)) {
-    lightRainTimer = heavyRainTimer = stormSurgeTimer = 0;
-    floodDetected = false;
-  }
-
-  if (value <= STORMSURGE) {
-    Serial.print("Storm (");
-  } else if (value <= HEAVYRAIN) {
-    Serial.print("Heavy (");
-  } else if (value <= LIGHTRAIN) {
-    Serial.print("Light (");
-  } else {
-    Serial.print("No Rain (");
-  }
-
-  Serial.print(value);
-  HM10.print(value);
-  Serial.println(")");
 
   delay(1000);
+  timer = 10;
 }
